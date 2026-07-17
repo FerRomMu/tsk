@@ -46,7 +46,18 @@ free and harmless — keep it, but do not cite it as the justification.
    deterministic — invariant I3 breaks silently and the divergence is discovered weeks
    later as two backlogs that do not agree.
 
-2. **We inherit git's hash threat model, including its total absence of collision
+2. **Op identity depends on the op's content *and on the repository's hash algorithm*.**
+   If a team ever migrates the host repo from SHA-1 to SHA-256, every blob OID changes,
+   so every op identity changes, so the tie-break reshuffles. This is the same hazard
+   class as a change to the transport encoding, already flagged above. Scope it honestly:
+   lamport values do not change, so only ops that tied on lamport can flip — concurrent
+   edits, which are rare. And since SHA-1 and SHA-256 repos do not interoperate well, a
+   team migrates together and all replicas reshuffle identically, so I3 continues to hold
+   within the new world. But the derived state after migration may differ from the state
+   before it. The rule: identity depends on op content and on the repository's hash
+   algorithm; changing either can reorder ties and change derived state.
+
+3. **We inherit git's hash threat model, including its total absence of collision
    handling.** Git checks whether an OID already exists and skips the write if so, which
    is simultaneously the dedupe mechanism and the reason a collision would silently
    discard content. Accidental collision resistance is complete at our scale (roughly

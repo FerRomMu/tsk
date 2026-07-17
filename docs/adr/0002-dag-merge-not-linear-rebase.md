@@ -21,10 +21,6 @@ children, because a child's OID is a hash of content that includes the parent's 
 the reverse pointer would be circular and non-computable. Append-only is therefore not
 a policy we chose to follow; it is the only thing git permits.
 
-The merge is fast-forward by construction: a merge commit makes everything reachable
-from either parent reachable from itself, so the new local head is a descendant of the
-remote head. The push that follows can only fast-forward.
-
 ## Alternatives considered
 
 **Linear rebase**, rejected. Take the union of ops, sort by `(lamport, blob_oid)`,
@@ -64,13 +60,66 @@ derived from `(lamport, blob_oid)`, the chain's topology is never read — the f
 everything before looking at anything. Rewriting the chain was pure wasted work that
 additionally forced the force push. The DAG does less.
 
+### Alternative 2, rejected: per-replica refs
+
+Each clone appends only to its own ref, `refs/tasks/<ULID>/<replica-id>`, containing
+only that replica's own ops. A ref with a single writer cannot diverge, so every push is
+trivially fast-forward: no merge commit, no empty-tree topology object, no retry loop.
+State is the fold over the union of all replicas' chains — which is what we already do,
+so the read path is conceptually unchanged. This is a standard op-based CRDT technique
+and several git-CRDT experiments run exactly this way.
+
+This is not rejected on safety grounds. It is exactly as safe as merge commits:
+uncontended refs, always fast-forward, no force push, no orphans possible. Every argument
+above against linear rebase applies equally in per-replica's favour. It is also simpler
+than what we chose, not more complex, and it requires no consensus. It is not worse in
+every respect — on most axes it is better.
+
+It is rejected on ref growth alone:
+
+- Ref count becomes O(tasks × replicas), and "replicas" is not the team size — it is
+  every clone that ever touched a task. The replica-id must be per-clone, not per-person:
+  one person working from two machines is two replicas, because those machines write
+  independently and would otherwise diverge on a shared ref, which reintroduces the merge
+  we were trying to avoid. So the count includes every new laptop, every re-clone after a
+  disk failure, every CI runner, every throwaway clone.
+
+- These refs cannot be deleted. A dead replica's ref is not garbage — its ops are real
+  data. Deleting it would require knowing that every participant has already seen those
+  ops, which is consensus, which requires knowing who "everyone" is. The system has no
+  membership concept: anyone can clone and show up six months later with old ops. This is
+  the same wall as log compaction, and per-replica makes it worse rather than better,
+  because it creates more refs that cannot be reclaimed.
+
+- Realistic estimate: five developers over three years with hardware refresh is roughly
+  twenty replicas — twenty times the refs, permanently, growing monotonically, with no
+  path to reclaim.
+
+A merge commit is ref compaction. We pay one object per sync and in exchange the ref
+namespace stays O(tasks), flat, forever. It is also the only compaction available to us
+without consensus, because a merge commit does not assert that anyone has seen anything —
+it only asserts reachability, which is a local, verifiable fact.
+
+Two further costs:
+
+- Read path: `tsk list` already costs O(tasks) subprocesses and that is the known
+  bottleneck. Per-replica multiplies it by the replica count on the hot path — 500 tasks
+  across 5 replicas is roughly 7500 subprocesses per list.
+- Replica identity is an explicit non-goal, and identity is precisely where git-bug's
+  complexity grew from.
+
+If this were a product rather than a learning exercise, per-replica would be competitive.
+The deciding argument is ref growth, not elegance. Revisit if ref count ever stops being
+expensive — for example if the reftable backend makes large ref stores cheap — or if
+merge commits turn out to cost more than projected.
+
 ## Consequences
 
 ### Positive
 
-- Push is fast-forward by construction.
-- Orphaned objects cannot be produced, so the scenario in rejection reason 3 has
-  nowhere to occur.
+- A merge commit makes everything reachable from either parent reachable from itself, so
+  orphaned objects cannot be produced and the scenario in rejection reason 3 has nowhere
+  to occur.
 - Works on any topology and against any server configuration.
 - Append-only becomes true at every layer, which removes the caveat that invariant I2
   previously carried.
@@ -81,6 +130,18 @@ additionally forced the force push. The DAG does less.
 - Merge commits accumulate and the DAG becomes bushy.
 - Chain order no longer equals total order. This is harmless — we always sort before
   folding — but it means the chain must never be read in its stored order.
+- The push is not fast-forward by construction. The merge commit is a descendant of the
+  remote head *we fetched*, not of the head the server holds at push time. If someone
+  pushes between our fetch and our push, the push is rejected as non-fast-forward and we
+  loop: fetch → merge → push. Implementers must expect this retry loop and must not
+  assume first-try success. What survives the correction is the actual point: the
+  rejection is git's native fast-forward check, not a protection someone has to remember
+  to configure. It fails closed, no data can be lost, and retrying is the correct
+  response. That is the difference from force push — not that the push never fails.
+- The compare-and-swap is per-ref, so the blast radius of a collision is one task; two
+  people syncing different tasks never contend. But without `--atomic`, a multi-ref push
+  is partial — some refs land, some are rejected — leaving the clone half-synced.
+  Recoverable by running sync again, but implementers should know it.
 
 ## Note for implementers
 
