@@ -66,3 +66,61 @@ def commit_tree(tree: str, message: bytes, parents: list[str] = ()) -> str:
     for parent in parents:
         args += ["-p", parent]
     return run(args, message + b"\n").decode().strip()
+
+def update_ref(ref: str, new_oid: str, old_oid: str | None = None) -> None:
+    """
+    Point a ref at a commit.
+
+    Args:
+        ref: the full ref name, e.g. "refs/tasks/<ULID>".
+        new_oid: the commit OID the ref should point to.
+        old_oid: if given, the update only succeeds when the ref
+            currently points here (compare-and-swap). Pass the empty
+            string to require that the ref does not yet exist.
+    """
+    args = ["update-ref", ref, new_oid]
+    if old_oid is not None:
+        args.append(old_oid)
+    run(args)
+
+def for_each_ref(pattern: str) -> list[tuple[str, str]]:
+    """
+    List refs matching a pattern.
+
+    Args:
+        pattern: a ref glob, e.g. "refs/tasks/*".
+
+    Returns:
+        (refname, oid) for each matching ref.
+    """
+    out = run(["for-each-ref", "--format=%(refname) %(objectname)", pattern]).decode()
+    result = []
+    for line in out.splitlines():
+        refname, oid = line.split()
+        result.append((refname, oid))
+    return result
+
+def rev_list(ref: str) -> list[str]:
+    """
+    List the commit OIDs reachable from a ref.
+
+    Args:
+        ref: a ref name or commit-ish, e.g. "refs/tasks/<ULID>".
+
+    Returns:
+        Commit OIDs reachable from ref, newest first.
+    """
+    return run(["rev-list", ref]).decode().split()
+
+def cat_file(oid: str) -> bytes:
+    """
+    Read an object's content.
+
+    Args:
+        oid: an object name — a blob OID, or a path form like
+            "<commit>:op" to read the blob at that path in a commit.
+
+    Returns:
+        The object's raw content.
+    """
+    return run(["cat-file", "-p", oid])
