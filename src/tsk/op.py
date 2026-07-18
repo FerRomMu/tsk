@@ -1,5 +1,7 @@
+import json
 import os
 import time
+import unicodedata
 
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"  # Crockford Base32: no I, L, O, U
 
@@ -33,3 +35,23 @@ def ulid() -> str:
     randomness = int.from_bytes(os.urandom(10))      # 80 bits: 10 random bytes
     value = (timestamp << 80) | randomness
     return _encode(value, 26)
+
+def canonical(op: dict) -> bytes:
+    """
+    Serialize an op to its canonical byte form for hashing.
+
+    Deterministic across machines: NFC-normalized string values, sorted keys,
+    no incidental whitespace, UTF-8, no trailing newline.
+
+    Args:
+        op: the op as a flat dict (str keys; str or int values).
+
+    Returns:
+        The canonical UTF-8 bytes.
+    """
+    normalized = {
+        key: unicodedata.normalize("NFC", value) if isinstance(value, str) else value
+        for key, value in op.items()
+    }
+    text = json.dumps(normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return text.encode()
