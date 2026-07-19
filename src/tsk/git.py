@@ -124,3 +124,16 @@ def cat_file(oid: str) -> bytes:
         The object's raw content.
     """
     return run(["cat-file", "-p", oid])
+
+def rev_parse(rev: str) -> str:
+    """
+    Resolve a revision expression to its OID.
+
+    Args:
+        rev: any revision git understands, e.g. "refs/tasks/<id>",
+            "<commit>^{tree}", or "<commit>:op".
+
+    Returns:
+        The resolved OID.
+    """
+    return run(["rev-parse", rev]).decode().strip()
