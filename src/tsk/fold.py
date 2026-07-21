@@ -13,7 +13,6 @@ def fold_all() -> list[Task]:
         One Task per ref under refs/tasks/*, in creation order
         (for-each-ref sorts by refname, and refnames are time-sortable ULIDs).
     """
-    refs = git.for_each_ref('refs/tasks/*')
     return [
         fold_ref(oid) for _, oid in git.for_each_ref("refs/tasks/*")
     ]
