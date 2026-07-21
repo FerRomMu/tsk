@@ -1,0 +1,14 @@
+[project]
+name = "tsk"
+version = "0.0.0"
+requires-python = ">=3.11"
+
+[project.scripts]
+tsk = "tsk.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tsk"]
