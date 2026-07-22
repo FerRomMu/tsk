@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import time
 import unicodedata
 
@@ -75,3 +76,44 @@ def write_create(title: str) -> str:
     commit = git.commit_tree(tree, b"create")
     git.update_ref(f"refs/tasks/{task_id}", commit, "")
     return task_id
+
+def _max_lamport(ref: str) -> int:
+    """
+    Find the highest lamport value among the ops reachable from a ref.
+
+    Args:
+        ref: a task ref, e.g. "refs/tasks/<ULID>".
+
+    Returns:
+        The highest lamport value found, or 0 if the ref has no ops.
+    """
+    lamport = 0
+    for commit in git.rev_list(ref):
+        try:
+            blob_oid = git.rev_parse(f"{commit}:op")
+        except subprocess.CalledProcessError:
+            continue  # commit with no op payload (e.g. a merge)
+        op = json.loads(git.cat_file(blob_oid))
+        lamport = max(lamport, op["lamport"])
+    return lamport
+
+def write_set_status(task_id: str, status: str) -> None:
+    """
+    Change a task's status: build a set_status op and append it to the task's ref.
+
+    Args:
+        task_id: the task's id (the ref suffix).
+        status: the new status.
+    """
+    ref = f"refs/tasks/{task_id}"
+    parent = git.rev_parse(ref)
+    op = {
+        "op": "set_status",
+        "id": task_id,
+        "lamport": _max_lamport(ref) + 1,
+        "status": status,
+    }
+    blob = git.hash_object(canonical(op))
+    tree = git.mktree([("100644", "blob", blob, "op")])
+    commit = git.commit_tree(tree, b"set_status", parents=[parent])
+    git.update_ref(ref, commit, parent)
