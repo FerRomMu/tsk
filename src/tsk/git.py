@@ -1,5 +1,6 @@
 import subprocess
 
+
 def run(args: list[str], stdin: bytes | None = None) -> bytes:
     """
     Run a git command and return its stdout.
@@ -137,3 +138,27 @@ def rev_parse(rev: str) -> str:
         The resolved OID.
     """
     return run(["rev-parse", rev]).decode().strip()
+
+def fetch(remote: str, refspec: str) -> None:
+    """
+    Fetch a refspec from a remote into its mapped tracking refs.
+
+    Fetches exactly the given refspec, ignoring the remote's configured
+    fetch refspecs. Touches neither local task refs nor the working tree.
+
+    Args:
+        remote: the remote name, e.g. "origin".
+        refspec: what to fetch, e.g.
+            "+refs/tasks/*:refs/remotes/origin/tasks/*".
+    """
+    run(["fetch", remote, refspec])
+
+def push(remote:str, refspec: str) -> None:
+    """
+    Push local refs to a remote.
+
+    Args:
+        remote: the remote name, e.g. "origin".
+        refspec: what to push, e.g. "refs/tasks/*:refs/tasks/*".
+    """
+    run(["push", remote, refspec])
