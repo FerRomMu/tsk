@@ -1,5 +1,7 @@
 # Architecture Decision Records
 
+> 🤖 Generated with Claude (Claude Code). Review critically before relying on it.
+
 An ADR records one architectural decision: the context that forced it, the choice
 made, the alternatives rejected, and the price paid. We keep them because `tsk`
 exists to learn git internals, and the reasoning behind a design is worth more than
@@ -26,3 +28,4 @@ the point of the log is to show how the design moved, not to hide that it did.
 | [0002](docs/adr/0002-dag-merge-not-linear-rebase.md) | DAG merge, not linear rebase | Accepted |
 | [0003](docs/adr/0003-op-payload-in-blob-not-commit-message.md) | Op payload in blob+tree, not in the commit message | Accepted |
 | [0004](docs/adr/0004-op-identity-is-blob-oid.md) | Op identity is the blob OID | Accepted |
+| [0005](docs/adr/0005-no-git-config-side-effects.md) | No git-config side effects; explicit refspecs, no `tsk init` | Accepted |

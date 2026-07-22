@@ -1,5 +1,7 @@
 # ADR-0002: DAG merge, not linear rebase
 
+> 🤖 Generated with Claude (Claude Code). Review critically before relying on it.
+
 ## Status
 
 Accepted — 2026-07-17

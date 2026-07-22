@@ -1,5 +1,7 @@
 # ADR-0003: Op payload in blob+tree, not in the commit message
 
+> 🤖 Generated with Claude (Claude Code). Review critically before relying on it.
+
 ## Status
 
 Accepted — 2026-07-17
