@@ -6,22 +6,28 @@ PUSH_REFSPEC = "refs/tasks/*:refs/tasks/*"
 
 def pull() -> None:
     """
-    Fetch task refs from the remote and adopt any this clone is missing.
+    Fetch task refs from the remote and fast-forward local refs to match.
 
-    Fetches refs/tasks/* into the tracking namespace, then for every task
-    present on the remote but absent locally, points a local ref at it.
-    
-    NOTE: Refs already held locally are left untouched — while ops are 
-    create-only they cannot have diverged. Divergence handling is deferred
-    to Milestone B.
+    Fetches refs/tasks/* into the tracking namespace, then for every task on
+    the remote: adopts it if this clone lacks it, or fast-forwards the local
+    ref when the remote is strictly ahead.
+
+    NOTE: Local refs that are ahead of the remote are left for push to send;
+    refs that have genuinely diverged are left untouched — merge handling is
+    deferred to Milestone B.
     """
     git.fetch(REMOTE, FETCH_REFSPEC)
 
-    local = {ref.rsplit("/", 1)[1] for ref, _ in git.for_each_ref("refs/tasks/*")} # SET ULID Refs
-    for ref, oid in git.for_each_ref("refs/remotes/origin/tasks/*"):
+    local = {
+        ref.rsplit("/", 1)[1]: oid for ref, oid in git.for_each_ref("refs/tasks/*")
+    }
+    for ref, remote_oid in git.for_each_ref("refs/remotes/origin/tasks/*"):
         ulid = ref.rsplit("/", 1)[1]
-        if ulid not in local:
-            git.update_ref(f"refs/tasks/{ulid}", oid)
+        local_oid = local.get(ulid)
+        if local_oid is None:
+            git.update_ref(f"refs/tasks/{ulid}", remote_oid)  # adopt missing
+        elif local_oid != remote_oid and git.is_ancestor(local_oid, remote_oid):
+            git.update_ref(f"refs/tasks/{ulid}", remote_oid)  # fast-forward
 
 def push() -> None:
     """

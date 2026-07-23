@@ -152,6 +152,33 @@ def rev_parse(rev: str) -> str:
     """
     return run(["rev-parse", rev]).decode().strip()
 
+def is_ancestor(ancestor: str, descendant: str) -> bool:
+    """
+    Report whether one commit is an ancestor of another.
+
+    Args:
+        ancestor: the commit that may be reachable from `descendant`.
+        descendant: the commit whose history is searched.
+
+    Returns:
+        True if `ancestor` is an ancestor of `descendant` — i.e. `descendant`
+        fast-forwards over it; False if not.
+
+    Raises:
+        subprocess.CalledProcessError: if either commit cannot be resolved.
+    """
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+        capture_output=True,
+    )
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    raise subprocess.CalledProcessError(
+        result.returncode, result.args, result.stdout, result.stderr
+    )
+
 def fetch(remote: str, refspec: str) -> None:
     """
     Fetch a refspec from a remote into its mapped tracking refs.
