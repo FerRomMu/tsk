@@ -2,6 +2,11 @@ import argparse
 
 from . import op
 from . import fold
+from . import sync
+
+def cmd_sync(_):
+    sync.pull()
+    sync.push()
 
 def cmd_new(args):
     task_id = op.write_create(args.title)
@@ -14,6 +19,9 @@ def cmd_ls(_):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="tsk")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    synch = sub.add_parser("sync", help="Synchronize local tasks with remote")
+    synch.set_defaults(func=cmd_sync)
 
     new = sub.add_parser("new", help="create a task")
     new.add_argument("title", help="the task title")

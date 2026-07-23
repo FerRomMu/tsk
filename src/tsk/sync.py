@@ -27,9 +27,10 @@ def push() -> None:
     """
     Push all local task refs to the remote.
 
-    NOTE: Sends refs/tasks/* to the identically-named refs on the remote. While
-    ops are create-only every push is fast-forward — each ref is write-once,
-    so a clone only ever adds refs the remote lacks and never contends. The
-    non-fast-forward retry loop is deferred to Milestone B.
+    Sends refs/tasks/* to the identically-named refs on the remote.
+
+    NOTE:  While ops are create-only every push is fast-forward — each ref
+    is write-once, so a clone only ever adds refs the remote lacks and never 
+    contends. The non-fast-forward retry loop is deferred to Milestone B.
     """
     git.push(REMOTE, PUSH_REFSPEC)
