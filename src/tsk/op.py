@@ -71,7 +71,29 @@ def write_create(title: str) -> str:
     task_id = ulid()
     op = {"op": "create", "id": task_id, "lamport": 1, "title": title}
     blob = git.hash_object(canonical(op))
-    tree = git.mktree([("100644", "blob", blob, "op")])
+    tree = git.mktree_with_blob(blob, "op")
     commit = git.commit_tree(tree, b"create")
     git.update_ref(f"refs/tasks/{task_id}", commit, "")
     return task_id
+
+def write_set_status(task_id: str, status: str) -> None:
+    """
+    Change a task's status: build a set_status op and append it to the task's ref.
+
+    Args:
+        task_id: the task's id (the ref suffix).
+        status: the new status.
+    """
+    ref = f"refs/tasks/{task_id}"
+    parent = git.rev_parse(ref)
+    parent_lamport = json.loads(git.cat_file(f"{parent}:op"))["lamport"]
+    op = {
+        "op": "set_status",
+        "id": task_id,
+        "lamport": parent_lamport + 1,
+        "status": status,
+    }
+    blob = git.hash_object(canonical(op))
+    tree = git.mktree_with_blob(blob, "op")
+    commit = git.commit_tree(tree, b"set_status", parents=[parent])
+    git.update_ref(ref, commit, parent)

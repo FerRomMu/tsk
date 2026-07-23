@@ -44,6 +44,8 @@ def fold_ref(ref: str) -> Task:
     for _, _, op in sorted(ops, key=lambda row: (row[0], row[1])):
         if op["op"] == "create":
             task = Task(id=op["id"], title=op["title"])
+        elif op["op"] == "set_status":
+            task.status = op["status"]
     return task
 
 
