@@ -106,3 +106,10 @@ blocks. More op-writing on a spine that already works.
   fetch itself.
 - **ID ergonomics: unique ULID prefix.** Commands accept a unique prefix
   (`tsk mv 01J3 doing`) and warn on ambiguity. Full 26-char IDs always accepted.
+- **`tsk sync` will report what changed, not sync silently.** A mini-`ls` of the tasks a
+  pull created / advanced / merged, instead of the current silent sync. Deferred until it
+  can be meaningful: needs mutable refs (B) so a pull can change an existing task, and a
+  fold that renders every op — status (B), title/body (D) — to show *what* changed. Shape:
+  `sync.pull` returns the affected task ids, `cmd_sync` folds and prints them. A
+  "new tasks only" version is possible from C-lite; the full new/updated/modified
+  breakdown lands with D.
