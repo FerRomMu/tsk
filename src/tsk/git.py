@@ -49,6 +49,19 @@ def mktree(entries: list[tuple[str, str, str, str]]) -> str:
     )
     return run(["mktree"], stdin=lines.encode()).decode().strip()
 
+def mktree_with_blob(blob_oid: str, blob_name: str) -> str:
+    """
+    Create a tree object holding a single blob as a regular file.
+
+    Args:
+        blob_oid: the OID of the blob to reference.
+        blob_name: the name to give the blob in the tree.
+
+    Returns:
+        The new tree's OID.
+    """
+    return mktree([("100644", "blob", blob_oid, blob_name)])
+
 def commit_tree(tree: str, message: bytes, parents: list[str] = ()) -> str:
     """
     Create a commit object pointing at a tree.
