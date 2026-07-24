@@ -5,9 +5,9 @@
 > Living document, not an ADR. Edit it as milestones complete; delete it once the tool
 > exists. The immutable *why* lives in `docs/adr/` — this is the *what next*.
 
-**Now: Milestone B — sync hardening for mutable refs. A and C-lite are complete. The
-pull-side empty-tree merge for diverged heads has landed; the push-side non-fast-forward
-retry loop is the remaining piece.**
+**Now: Milestone D — remaining ops. A, C-lite, and B are complete. Sync is hardened for
+mutable refs: the pull-side empty-tree merge and the push-side non-fast-forward retry
+loop have both landed.**
 
 A git-native task backlog for a team on a shared remote. Ops stored under `refs/tasks/*`,
 state derived by folding, sync through the central remote. Small and simple: four ops,
@@ -20,7 +20,7 @@ tsk/
   git.py     # subprocess wrapper over git plumbing
   op.py      # ULID, canonical JSON, op construction + write
   fold.py    # read refs → ops → sorted → Task state
-  sync.py    # fetch + adopt, push (merge/retry deferred to B)
+  sync.py    # pull (fetch + adopt/merge), push primitive, run = pull + retry-push
   cli.py     # argparse entry point
   __main__.py
 ```
@@ -101,8 +101,9 @@ blocks. More op-writing on a spine that already works.
 1. `fold.py` — apply `set_status` when folding a task. ✓
 2. `git.py` — `empty_tree()`; `sync.pull()` — join diverged task heads with a two-parent
    empty-tree merge commit (ADR-0002). Proven against two clones editing the same task. ✓
-3. `sync.push()` — fetch→merge→push retry loop on non-fast-forward rejection. See
-   `docs/deferred.md`. ⟳ next
+3. `git.py` — `push()` raises `PushRejectedError` (new `git_exceptions.py`) on
+   non-fast-forward; `sync.run()` orchestrates pull → retry-push while `sync.push()`
+   stays a plain primitive; `cli.cmd_sync` calls `sync.run()`. ✓
 
 ## Decisions
 
