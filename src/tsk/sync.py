@@ -21,11 +21,6 @@ def pull() -> None:
     it carries topology only, no op, so fold skips it. This makes every op from
     either side reachable from the new local head; the fold's (lamport, blob_oid)
     order — not chain topology — decides the resulting state.
-
-    NOTE: The merge commit descends from the remote head we just fetched, not
-    from whatever the server holds at push time, so the subsequent push can still
-    be rejected non-fast-forward if someone pushed in between. The fetch->merge->
-    push retry loop that closes that window is deferred (see docs/deferred.md).
     """
     git.fetch(REMOTE, FETCH_REFSPEC)
 

@@ -1,5 +1,7 @@
 import subprocess
 
+from .git_exceptions import PushRejectedError
+
 
 def run(args: list[str], stdin: bytes | None = None) -> bytes:
     """
@@ -205,12 +207,22 @@ def fetch(remote: str, refspec: str) -> None:
     """
     run(["fetch", remote, refspec])
 
-def push(remote:str, refspec: str) -> None:
+def push(remote: str, refspec: str) -> None:
     """
     Push local refs to a remote.
 
     Args:
         remote: the remote name, e.g. "origin".
         refspec: what to push, e.g. "refs/tasks/*:refs/tasks/*".
+
+    Raises:
+        PushRejectedError: the remote moved and the push was rejected
+            non-fast-forward; fetch and retry.
     """
-    run(["push", remote, refspec])
+    try:
+        run(["push", remote, refspec])
+    except subprocess.CalledProcessError as e:
+        stderr = e.stderr or b""
+        if b"non-fast-forward" in stderr or b"fetch first" in stderr:
+            raise PushRejectedError() from e
+        raise
