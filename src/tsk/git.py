@@ -1,5 +1,7 @@
 import subprocess
 
+from .git_exceptions import PushRejectedError
+
 
 def run(args: list[str], stdin: bytes | None = None) -> bytes:
     """
@@ -62,6 +64,18 @@ def mktree_with_blob(blob_oid: str, blob_name: str) -> str:
         The new tree's OID.
     """
     return mktree([("100644", "blob", blob_oid, blob_name)])
+
+def empty_tree() -> str:
+    """
+    Create (or resolve) the empty tree object.
+
+    The empty tree is content-addressed, so this always yields the same OID.
+    Used as the tree of a merge commit, which carries topology only and no op.
+
+    Returns:
+        The empty tree's OID.
+    """
+    return mktree([])
 
 def commit_tree(tree: str, message: bytes, parents: list[str] = ()) -> str:
     """
@@ -193,12 +207,22 @@ def fetch(remote: str, refspec: str) -> None:
     """
     run(["fetch", remote, refspec])
 
-def push(remote:str, refspec: str) -> None:
+def push(remote: str, refspec: str) -> None:
     """
     Push local refs to a remote.
 
     Args:
         remote: the remote name, e.g. "origin".
         refspec: what to push, e.g. "refs/tasks/*:refs/tasks/*".
+
+    Raises:
+        PushRejectedError: the remote moved and the push was rejected
+            non-fast-forward; fetch and retry.
     """
-    run(["push", remote, refspec])
+    try:
+        run(["push", remote, refspec])
+    except subprocess.CalledProcessError as e:
+        stderr = e.stderr or b""
+        if b"non-fast-forward" in stderr or b"fetch first" in stderr:
+            raise PushRejectedError() from e
+        raise
