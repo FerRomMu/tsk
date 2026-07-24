@@ -6,8 +6,7 @@ from . import fold
 from . import sync
 
 def cmd_sync(_):
-    sync.pull()
-    sync.push()
+    sync.run()
 
 def cmd_new(args):
     task_id = op.write_create(args.title)
