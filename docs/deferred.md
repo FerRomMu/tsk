@@ -12,11 +12,16 @@ Fine for a plumbing library (callers inspect), but the **CLI layer** must catch
 `CalledProcessError` and surface `e.stderr` so failures are legible.
 Resolve when building `cli.py` (Milestone D — error output).
 
-## DAG merge commit and push retry loop
-Sync ships first as C-lite, on the create-only op set: task refs are write-once,
-globally-unique ULIDs and cannot diverge. So the empty-tree merge commit for diverged
-heads and the fetch→merge→push retry loop on non-fast-forward rejection (ADR-0002) are
-not built — `sync.pull` adopts missing refs and `sync.push` pushes plainly. Both become
-**mandatory** in Milestone B, the moment `set_status`/`mv` make refs mutable and
-divergence becomes real. Syncing mutable tasks before they exist is unsafe.
-Resolve in Milestone B.
+## Push retry loop on non-fast-forward rejection
+The empty-tree merge commit for diverged heads (ADR-0002) has landed: `sync.pull` now
+joins two diverged task heads with a two-parent, empty-tree merge commit. But the merge
+descends from the remote head we *fetched*, not from whatever the server holds at push
+time — so if another clone pushes between our fetch and our push, `sync.push` is rejected
+non-fast-forward. The fetch→merge→push retry loop that closes that window is still not
+built: `sync.push` pushes plainly and surfaces git's rejection unretried. It became
+**mandatory** the moment `set_status`/`mv` made refs mutable and real divergence possible.
+Resolve in Milestone B (next step).
+
+Note: `git.push` goes through `git.run` (`capture_output=True`), so a non-fast-forward rejection
+currently raises `CalledProcessError` with the reason in `.stderr` — the retry loop must
+distinguish that specific rejection from other push failures.
