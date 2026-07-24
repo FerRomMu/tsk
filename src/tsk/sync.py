@@ -1,8 +1,10 @@
 from . import git
+from .git_exceptions import PushRejectedError
 
 REMOTE = "origin"
 FETCH_REFSPEC = "+refs/tasks/*:refs/remotes/origin/tasks/*"
 PUSH_REFSPEC = "refs/tasks/*:refs/tasks/*"
+PUSH_MAX_ATTEMPTS = 5
 
 def pull() -> None:
     """
@@ -49,9 +51,23 @@ def push() -> None:
     Push all local task refs to the remote.
 
     Sends refs/tasks/* to the identically-named refs on the remote.
-
-    NOTE:  While ops are create-only every push is fast-forward — each ref
-    is write-once, so a clone only ever adds refs the remote lacks and never 
-    contends. The non-fast-forward retry loop is deferred to Milestone B.
     """
     git.push(REMOTE, PUSH_REFSPEC)
+
+def run() -> None:
+    """
+    Synchronize local tasks with the remote: reconcile, then push.
+
+    Pulls once to reconcile, then pushes. If the remote moved in between, the
+    push is rejected non-fast-forward; pulls again to re-reconcile and retry,
+    bounded by PUSH_MAX_ATTEMPTS. The final rejection propagates.
+    """
+    pull()
+    for attempt in range(PUSH_MAX_ATTEMPTS):
+        try:
+            push()
+            return
+        except PushRejectedError:
+            if attempt == PUSH_MAX_ATTEMPTS - 1:
+                raise
+            pull()
