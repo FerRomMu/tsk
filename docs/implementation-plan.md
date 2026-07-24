@@ -5,7 +5,9 @@
 > Living document, not an ADR. Edit it as milestones complete; delete it once the tool
 > exists. The immutable *why* lives in `docs/adr/` — this is the *what next*.
 
-**Now: Milestone C-lite — sync on the create-only op set. A is complete; C is pulled ahead of B.**
+**Now: Milestone B — sync hardening for mutable refs. A and C-lite are complete. The
+pull-side empty-tree merge for diverged heads has landed; the push-side non-fast-forward
+retry loop is the remaining piece.**
 
 A git-native task backlog for a team on a shared remote. Ops stored under `refs/tasks/*`,
 state derived by folding, sync through the central remote. Small and simple: four ops,
@@ -84,14 +86,23 @@ blocks. More op-writing on a spine that already works.
 6. `fold.py` — enumerate `for-each-ref refs/tasks/*`, fold each → task list.
 7. `cli.py` — `tsk new "<title>"` and `tsk ls`.
 
-## Milestone C-lite steps (one commit each)
+## Milestone C-lite steps (one commit each) — ✓ complete
 
 1. `git.py` — `fetch(remote, refspec)`. ✓
 2. `git.py` — `push(remote, refspec)`. ✓
 3. `sync.py` — `pull()`: fetch the tracking refspec, then `update-ref`-adopt every task
-   ref present in `refs/remotes/origin/tasks/*` but missing from `refs/tasks/*`.
-4. `sync.py` — `push()`: push `refs/tasks/*:refs/tasks/*` to origin.
-5. `cli.py` — `tsk sync`: pull then push.
+   ref present in `refs/remotes/origin/tasks/*` but missing from `refs/tasks/*`. ✓
+   (also fast-forwards a local ref when the remote is strictly ahead)
+4. `sync.py` — `push()`: push `refs/tasks/*:refs/tasks/*` to origin. ✓
+5. `cli.py` — `tsk sync`: pull then push. ✓
+
+## Milestone B steps (one commit each)
+
+1. `fold.py` — apply `set_status` when folding a task. ✓
+2. `git.py` — `empty_tree()`; `sync.pull()` — join diverged task heads with a two-parent
+   empty-tree merge commit (ADR-0002). Proven against two clones editing the same task. ✓
+3. `sync.push()` — fetch→merge→push retry loop on non-fast-forward rejection. See
+   `docs/deferred.md`. ⟳ next
 
 ## Decisions
 

@@ -63,6 +63,18 @@ def mktree_with_blob(blob_oid: str, blob_name: str) -> str:
     """
     return mktree([("100644", "blob", blob_oid, blob_name)])
 
+def empty_tree() -> str:
+    """
+    Create (or resolve) the empty tree object.
+
+    The empty tree is content-addressed, so this always yields the same OID.
+    Used as the tree of a merge commit, which carries topology only and no op.
+
+    Returns:
+        The empty tree's OID.
+    """
+    return mktree([])
+
 def commit_tree(tree: str, message: bytes, parents: list[str] = ()) -> str:
     """
     Create a commit object pointing at a tree.

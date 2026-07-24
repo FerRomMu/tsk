@@ -6,15 +6,26 @@ PUSH_REFSPEC = "refs/tasks/*:refs/tasks/*"
 
 def pull() -> None:
     """
-    Fetch task refs from the remote and fast-forward local refs to match.
+    Fetch task refs from the remote and reconcile local refs against them.
 
     Fetches refs/tasks/* into the tracking namespace, then for every task on
-    the remote: adopts it if this clone lacks it, or fast-forwards the local
-    ref when the remote is strictly ahead.
+    the remote reconciles the local ref by reachability:
 
-    NOTE: Local refs that are ahead of the remote are left for push to send;
-    refs that have genuinely diverged are left untouched — merge handling is
-    deferred to Milestone B.
+    - missing locally      -> adopt the remote head
+    - identical            -> nothing to do
+    - remote strictly ahead -> fast-forward to it
+    - local strictly ahead  -> leave it for push to send
+    - diverged              -> empty-tree merge commit over both heads (ADR-0002)
+
+    Diverged heads are joined with a two-parent merge commit whose tree is empty:
+    it carries topology only, no op, so fold skips it. This makes every op from
+    either side reachable from the new local head; the fold's (lamport, blob_oid)
+    order — not chain topology — decides the resulting state.
+
+    NOTE: The merge commit descends from the remote head we just fetched, not
+    from whatever the server holds at push time, so the subsequent push can still
+    be rejected non-fast-forward if someone pushed in between. The fetch->merge->
+    push retry loop that closes that window is deferred (see docs/deferred.md).
     """
     git.fetch(REMOTE, FETCH_REFSPEC)
 
@@ -26,8 +37,17 @@ def pull() -> None:
         local_oid = local.get(ulid)
         if local_oid is None:
             git.update_ref(f"refs/tasks/{ulid}", remote_oid)  # adopt missing
-        elif local_oid != remote_oid and git.is_ancestor(local_oid, remote_oid):
+        elif local_oid == remote_oid:
+            continue  # already in sync
+        elif git.is_ancestor(local_oid, remote_oid):
             git.update_ref(f"refs/tasks/{ulid}", remote_oid)  # fast-forward
+        elif git.is_ancestor(remote_oid, local_oid):
+            continue  # local strictly ahead — push will send it
+        else:
+            merge = git.commit_tree(
+                git.empty_tree(), b"merge", parents=[local_oid, remote_oid]
+            )
+            git.update_ref(f"refs/tasks/{ulid}", merge)  # join diverged heads
 
 def push() -> None:
     """
