@@ -97,3 +97,47 @@ def write_set_status(task_id: str, status: str) -> None:
     tree = git.mktree_with_blob(blob, "op")
     commit = git.commit_tree(tree, b"set_status", parents=[parent])
     git.update_ref(ref, commit, parent)
+
+def write_set_title(task_id: str, title: str) -> None:
+    """
+    Change a task's title: build a set_title op and append it to the task's ref.
+
+    Args:
+        task_id: the task's id (the ref suffix).
+        title: the new title.
+    """
+    ref = f"refs/tasks/{task_id}"
+    parent = git.rev_parse(ref)
+    parent_lamport = json.loads(git.cat_file(f"{parent}:op"))["lamport"]
+    op = {
+        "op": "set_title",
+        "id": task_id,
+        "lamport": parent_lamport + 1,
+        "title": title,
+    }
+    blob = git.hash_object(canonical(op))
+    tree = git.mktree_with_blob(blob, "op")
+    commit = git.commit_tree(tree, b"set_title", parents=[parent])
+    git.update_ref(ref, commit, parent)
+
+def write_set_body(task_id: str, body: str) -> None:
+    """
+    Change a task's body: build a set_body op and append it to the task's ref.
+
+    Args:
+        task_id: the task's id (the ref suffix).
+        body: the new body.
+    """
+    ref = f"refs/tasks/{task_id}"
+    parent = git.rev_parse(ref)
+    parent_lamport = json.loads(git.cat_file(f"{parent}:op"))["lamport"]
+    op = {
+        "op": "set_body",
+        "id": task_id,
+        "lamport": parent_lamport + 1,
+        "body": body,
+    }
+    blob = git.hash_object(canonical(op))
+    tree = git.mktree_with_blob(blob, "op")
+    commit = git.commit_tree(tree, b"set_body", parents=[parent])
+    git.update_ref(ref, commit, parent)
