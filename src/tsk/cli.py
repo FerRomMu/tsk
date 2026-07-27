@@ -20,6 +20,15 @@ def cmd_mv(args):
     task_id = resolve_id(args.id)
     op.write_set_status(task_id, args.status)
 
+def cmd_edit(args):
+    if args.title is None and args.body is None:
+        raise SystemExit("tsk: edit needs at least one of --title or --body")
+    task_id = resolve_id(args.id)
+    if args.title is not None:
+        op.write_set_title(task_id, args.title)
+    if args.body is not None:
+        op.write_set_body(task_id, args.body)
+
 def resolve_id(prefix: str) -> str:
     """
     Resolve a task id or unique prefix to its full ULID.
@@ -62,6 +71,12 @@ def main(argv=None):
     mv.add_argument("id", help="the task id, or a unique prefix of it")
     mv.add_argument("status", help="the new status")
     mv.set_defaults(func=cmd_mv)
+
+    edit = sub.add_parser("edit", help="change a task's title and/or body")
+    edit.add_argument("id", help="the task id, or a unique prefix of it")
+    edit.add_argument("--title", help="the new title")
+    edit.add_argument("--body", help="the new body")
+    edit.set_defaults(func=cmd_edit)
 
     args = parser.parse_args(argv)
     args.func(args)
