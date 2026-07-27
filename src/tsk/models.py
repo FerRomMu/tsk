@@ -5,3 +5,4 @@ class Task:
     id: str
     title: str
     status: str = "todo"
+    body: str = ""
