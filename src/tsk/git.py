@@ -166,6 +166,18 @@ def rev_parse(rev: str) -> str:
     """
     return run(["rev-parse", rev]).decode().strip()
 
+def parents(commit: str) -> list[str]:
+    """
+    List a commit's parent OIDs.
+
+    Args:
+        commit: a commit-ish, e.g. an OID or a ref name.
+
+    Returns:
+        The parent OIDs in order; empty for a root commit.
+    """
+    return run(["rev-list", "--parents", "-1", commit]).decode().split()[1:]
+
 def is_ancestor(ancestor: str, descendant: str) -> bool:
     """
     Report whether one commit is an ancestor of another.

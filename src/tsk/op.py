@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import time
 import unicodedata
 
@@ -76,6 +77,32 @@ def write_create(title: str) -> str:
     git.update_ref(f"refs/tasks/{task_id}", commit, "")
     return task_id
 
+def _head_lamport(ref: str) -> int:
+    """
+    Read the highest lamport in a task's history.
+
+    Every op is written with max + 1, so an op's lamport already exceeds
+    everything behind it: the highest sits at the head, or — when the head is
+    an op-less sync merge (ADR-0002) — at the nearest op commit on each side.
+
+    Args:
+        ref: a task ref, e.g. "refs/tasks/<ULID>".
+
+    Returns:
+        The highest lamport reachable from ref.
+    """
+    frontier = [git.rev_parse(ref)]
+    highest = 0
+    while frontier:
+        commit = frontier.pop()
+        try:
+            blob_oid = git.rev_parse(f"{commit}:op")
+        except subprocess.CalledProcessError:
+            frontier.extend(git.parents(commit))  # op-less merge: look behind it
+            continue
+        highest = max(highest, json.loads(git.cat_file(blob_oid))["lamport"])
+    return highest
+
 def _write_set(task_id: str, field: str, value: str) -> None:
     """
     Append a set_<field> op to a task's ref.
@@ -88,11 +115,10 @@ def _write_set(task_id: str, field: str, value: str) -> None:
     op_name = f"set_{field}"
     ref = f"refs/tasks/{task_id}"
     parent = git.rev_parse(ref)
-    parent_lamport = json.loads(git.cat_file(f"{parent}:op"))["lamport"]
     op = {
         "op": op_name,
         "id": task_id,
-        "lamport": parent_lamport + 1,
+        "lamport": _head_lamport(ref) + 1,
         field: value,
     }
     blob = git.hash_object(canonical(op))
