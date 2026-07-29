@@ -46,6 +46,10 @@ def fold_ref(ref: str) -> Task:
             task = Task(id=op["id"], title=op["title"])
         elif op["op"] == "set_status":
             task.status = op["status"]
+        elif op["op"] == "set_title":
+            task.title = op["title"]
+        elif op["op"] == "set_body":
+            task.body = op["body"]
     return task
 
 
