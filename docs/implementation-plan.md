@@ -5,9 +5,11 @@
 > Living document, not an ADR. Edit it as milestones complete; delete it once the tool
 > exists. The immutable *why* lives in `docs/adr/` — this is the *what next*.
 
-**Now: Milestone D — remaining ops. A, C-lite, and B are complete. Sync is hardened for
-mutable refs: the pull-side empty-tree merge and the push-side non-fast-forward retry
-loop have both landed.**
+**Now: Milestone D — remaining ops, steps 1–7 landed. A, C-lite, and B are complete. Sync
+is hardened for mutable refs: the pull-side empty-tree merge and the push-side
+non-fast-forward retry loop have both landed. All four ops now write and fold, and
+`tsk edit` / `tsk show` are in. What's left in D: status validation that warns, and CLI
+error output.**
 
 A git-native task backlog for a team on a shared remote. Ops stored under `refs/tasks/*`,
 state derived by folding, sync through the central remote. Small and simple: four ops,
@@ -16,12 +18,15 @@ fold, sync. Nothing else.
 ## File layout
 
 ```
-tsk/
-  git.py     # subprocess wrapper over git plumbing
-  op.py      # ULID, canonical JSON, op construction + write
-  fold.py    # read refs → ops → sorted → Task state
-  sync.py    # pull (fetch + adopt/merge), push primitive, run = pull + retry-push
-  cli.py     # argparse entry point
+src/
+  tsk/
+    git.py            # subprocess wrapper over git plumbing
+    git_exceptions.py # PushRejectedError
+    op.py             # ULID, canonical JSON, op construction + write
+    fold.py           # read refs → ops → sorted → Task state
+    models.py         # Task dataclass
+    sync.py           # pull (fetch + adopt/merge), push primitive, run = pull + retry-push
+    cli.py            # argparse entry point
   __main__.py
 ```
 
@@ -67,7 +72,8 @@ task.
 
 **D — Remaining ops.**
 `set_title`, `set_body`, `tsk edit`, `tsk show`, status validation that warns rather than
-blocks. More op-writing on a spine that already works.
+blocks, and the CLI error output deferred from A (`docs/deferred.md`). More op-writing on a
+spine that already works.
 
 ## Milestone A steps (one commit each) — ✓ complete
 
@@ -96,7 +102,7 @@ blocks. More op-writing on a spine that already works.
 4. `sync.py` — `push()`: push `refs/tasks/*:refs/tasks/*` to origin. ✓
 5. `cli.py` — `tsk sync`: pull then push. ✓
 
-## Milestone B steps (one commit each)
+## Milestone B steps (one commit each) — ✓ complete
 
 1. `fold.py` — apply `set_status` when folding a task. ✓
 2. `git.py` — `empty_tree()`; `sync.pull()` — join diverged task heads with a two-parent
@@ -104,6 +110,20 @@ blocks. More op-writing on a spine that already works.
 3. `git.py` — `push()` raises `PushRejectedError` (new `git_exceptions.py`) on
    non-fast-forward; `sync.run()` orchestrates pull → retry-push while `sync.push()`
    stays a plain primitive; `cli.cmd_sync` calls `sync.run()`. ✓
+
+## Milestone D steps (one commit each)
+
+1. `models.py` — add `body` to `Task`. ✓
+2. `op.py` — `write_set_title(task_id, title)`. ✓
+3. `op.py` — `write_set_body(task_id, body)`. ✓
+4. `op.py` — shared `_write_set` helper; `write_set_status`/`_title`/`_body` refactored onto
+   it. Lamport is derived from the history head, not the parent commit. ✓
+5. `fold.py` — apply `set_title` and `set_body` when folding a task. ✓
+6. `cli.py` — `tsk edit`: `--title` / `--body`, at least one required. ✓
+7. `cli.py` — `tsk show`: one task in full, body as an indented block after a blank line. ✓
+8. Status validation that **warns, not blocks** — an unknown status still writes.
+9. `cli.py` — catch `CalledProcessError` and surface `e.stderr`; closes the error-output gap
+   in `docs/deferred.md`.
 
 ## Decisions
 
