@@ -1,4 +1,5 @@
 import argparse
+import subprocess
 
 from . import git
 from . import op
@@ -94,4 +95,13 @@ def main(argv=None):
     edit.set_defaults(func=cmd_edit)
 
     args = parser.parse_args(argv)
-    args.func(args)
+    try:
+        args.func(args)
+    except subprocess.CalledProcessError as e:
+        # git.run captures stderr, so git's own message would otherwise be
+        # swallowed into a traceback with an empty-looking error.
+        lines = [f"tsk: {' '.join(e.cmd)} failed"]
+        detail = (e.stderr or b"").decode(errors="replace").strip()
+        if detail:
+            lines.append(detail)
+        raise SystemExit("\n".join(lines))
