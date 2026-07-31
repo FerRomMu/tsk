@@ -15,11 +15,16 @@ def cmd_new(args):
 
 def cmd_ls(_):
     for task in fold.fold_all():
-        print(task)
+        if not task.deleted:
+            print(task)
 
 def cmd_mv(args):
     task_id = resolve_id(args.id)
     op.write_set_status(task_id, args.status)
+
+def cmd_rm(args):
+    task_id = resolve_id(args.id)
+    op.write_set_deleted(task_id, True)
 
 def cmd_edit(args):
     if args.title is None and args.body is None:
@@ -83,6 +88,10 @@ def main(argv=None):
     mv.add_argument("id", help="the task id, or a unique prefix of it")
     mv.add_argument("status", help="the new status")
     mv.set_defaults(func=cmd_mv)
+
+    rm = sub.add_parser("rm", help="hide a task from ls (its ref is kept, not erased)")
+    rm.add_argument("id", help="the task id, or a unique prefix of it")
+    rm.set_defaults(func=cmd_rm)
 
     show = sub.add_parser("show", help="show one task in full")
     show.add_argument("id", help="the task id, or a unique prefix of it")

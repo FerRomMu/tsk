@@ -103,7 +103,7 @@ def _head_lamport(ref: str) -> int:
         highest = max(highest, json.loads(git.cat_file(blob_oid))["lamport"])
     return highest
 
-def _write_set(task_id: str, field: str, value: str) -> None:
+def _write_set(task_id: str, field: str, value: str | bool) -> None:
     """
     Append a set_<field> op to a task's ref.
 
@@ -155,3 +155,18 @@ def write_set_body(task_id: str, body: str) -> None:
         body: the new body.
     """
     _write_set(task_id, "body", body)
+
+def write_set_deleted(task_id: str, deleted: bool) -> None:
+    """
+    Change a task's deleted flag: build a set_deleted op and append it to the
+    task's ref.
+
+    The ref itself is never removed, so a deleted task's history stays intact
+    and can be restored by writing `deleted=False` later; deletion only hides
+    the task from `ls`.
+
+    Args:
+        task_id: the task's id (the ref suffix).
+        deleted: the new deleted flag.
+    """
+    _write_set(task_id, "deleted", deleted)
