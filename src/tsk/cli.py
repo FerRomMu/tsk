@@ -89,7 +89,7 @@ def main(argv=None):
     mv.add_argument("status", help="the new status")
     mv.set_defaults(func=cmd_mv)
 
-    rm = sub.add_parser("rm", help="hide a task from ls (its ref is kept, not erased)")
+    rm = sub.add_parser("rm", help="deletes a task from the backlog")
     rm.add_argument("id", help="the task id, or a unique prefix of it")
     rm.set_defaults(func=cmd_rm)
 
