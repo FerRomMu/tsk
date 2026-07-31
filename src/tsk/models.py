@@ -6,3 +6,4 @@ class Task:
     title: str
     status: str = "todo"
     body: str = ""
+    deleted: bool = False
