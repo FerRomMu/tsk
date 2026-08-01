@@ -2,9 +2,10 @@ import json
 import os
 import subprocess
 import time
-import unicodedata
 
 from . import git
+from . import ops
+from .ops import Create, Op, SetBody, SetDeleted, SetStatus, SetTitle
 
 _CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"  # Crockford Base32: no I, L, O, U
 
@@ -39,26 +40,6 @@ def ulid() -> str:
     value = (timestamp << 80) | randomness
     return _encode(value, 26)
 
-def canonical(op: dict) -> bytes:
-    """
-    Serialize an op to its canonical byte form for hashing.
-
-    Deterministic across machines: NFC-normalized string values, sorted keys,
-    no incidental whitespace, UTF-8, no trailing newline.
-
-    Args:
-        op: the op as a flat dict (str keys; str or int values).
-
-    Returns:
-        The canonical UTF-8 bytes.
-    """
-    normalized = {
-        key: unicodedata.normalize("NFC", value) if isinstance(value, str) else value
-        for key, value in op.items()
-    }
-    text = json.dumps(normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return text.encode()
-
 def write_create(title: str) -> str:
     """
     Create a new task: build a create op, store it, and point a fresh ref at it.
@@ -70,8 +51,8 @@ def write_create(title: str) -> str:
         The new task's id (the ULID, also the ref suffix).
     """
     task_id = ulid()
-    op = {"op": "create", "id": task_id, "lamport": 1, "title": title}
-    blob = git.hash_object(canonical(op))
+    op = Create(id=task_id, lamport=1, title=title)
+    blob = git.hash_object(ops.canonical(op))
     tree = git.mktree_with_blob(blob, "op")
     commit = git.commit_tree(tree, b"create")
     git.update_ref(f"refs/tasks/{task_id}", commit, "")
@@ -103,27 +84,30 @@ def _head_lamport(ref: str) -> int:
         highest = max(highest, json.loads(git.cat_file(blob_oid))["lamport"])
     return highest
 
-def _write_set(task_id: str, field: str, value: str | bool) -> None:
+def _next_lamport(task_id: str) -> int:
     """
-    Append a set_<field> op to a task's ref.
+    Pick the lamport for the next op on a task.
 
     Args:
         task_id: the task's id (the ref suffix).
-        field: the field being set; also names the op ("set_" + field).
-        value: the field's new value.
+
+    Returns:
+        One past the highest lamport already in the task's history.
     """
-    op_name = f"set_{field}"
-    ref = f"refs/tasks/{task_id}"
+    return _head_lamport(f"refs/tasks/{task_id}") + 1
+
+def _append(op: Op) -> None:
+    """
+    Append an op to its task's ref.
+
+    Args:
+        op: the op to store; its `id` names the ref it lands on.
+    """
+    ref = f"refs/tasks/{op.id}"
     parent = git.rev_parse(ref)
-    op = {
-        "op": op_name,
-        "id": task_id,
-        "lamport": _head_lamport(ref) + 1,
-        field: value,
-    }
-    blob = git.hash_object(canonical(op))
+    blob = git.hash_object(ops.canonical(op))
     tree = git.mktree_with_blob(blob, "op")
-    commit = git.commit_tree(tree, op_name.encode(), parents=[parent])
+    commit = git.commit_tree(tree, ops.tag(op).encode(), parents=[parent])
     git.update_ref(ref, commit, parent)
 
 def write_set_status(task_id: str, status: str) -> None:
@@ -134,7 +118,7 @@ def write_set_status(task_id: str, status: str) -> None:
         task_id: the task's id (the ref suffix).
         status: the new status.
     """
-    _write_set(task_id, "status", status)
+    _append(SetStatus(id=task_id, lamport=_next_lamport(task_id), status=status))
 
 def write_set_title(task_id: str, title: str) -> None:
     """
@@ -144,7 +128,7 @@ def write_set_title(task_id: str, title: str) -> None:
         task_id: the task's id (the ref suffix).
         title: the new title.
     """
-    _write_set(task_id, "title", title)
+    _append(SetTitle(id=task_id, lamport=_next_lamport(task_id), title=title))
 
 def write_set_body(task_id: str, body: str) -> None:
     """
@@ -154,7 +138,7 @@ def write_set_body(task_id: str, body: str) -> None:
         task_id: the task's id (the ref suffix).
         body: the new body.
     """
-    _write_set(task_id, "body", body)
+    _append(SetBody(id=task_id, lamport=_next_lamport(task_id), body=body))
 
 def write_set_deleted(task_id: str, deleted: bool) -> None:
     """
@@ -169,4 +153,4 @@ def write_set_deleted(task_id: str, deleted: bool) -> None:
         task_id: the task's id (the ref suffix).
         deleted: the new deleted flag.
     """
-    _write_set(task_id, "deleted", deleted)
+    _append(SetDeleted(id=task_id, lamport=_next_lamport(task_id), deleted=deleted))
