@@ -74,30 +74,40 @@ def pull() -> None:
     }
     for ref, remote_oid in git.for_each_ref("refs/remotes/origin/tasks/*"):
         ulid = ref.rsplit("/", 1)[1]
+        task_ref = f"refs/tasks/{ulid}"
         local_oid = local.get(ulid)
+        pruned = local_oid is None and ulid in prior_tracking
 
-        if local_oid is None and ulid in prior_tracking:
+        if pruned:
             expected = prior_tracking[ulid]
-            if git.push_delete(REMOTE, f"refs/tasks/{ulid}", expected):
+            if git.push_delete(REMOTE, task_ref, expected):
                 git.delete_ref(ref, expected)  # tracking ref is now stale
                 continue
             print(f"tsk: could not prune {ulid}: the remote changed since it "
                   f"was pruned; restoring it, merged with the newer state")
             local_oid = expected  # fall through, treated as the missing local ref
 
+        # Below, `continue` means "the local ref is already correct as-is" —
+        # true when it really exists on disk, false when local_oid is only a
+        # pruned stand-in (the ref itself is gone), so those branches must
+        # still write it back whenever `pruned`.
         if local_oid is None:
-            git.update_ref(f"refs/tasks/{ulid}", remote_oid)  # adopt missing
+            git.update_ref(task_ref, remote_oid)  # adopt missing
         elif local_oid == remote_oid:
+            if pruned:
+                git.update_ref(task_ref, remote_oid)  # restore: nothing raced us
             continue  # already in sync
         elif git.is_ancestor(local_oid, remote_oid):
-            git.update_ref(f"refs/tasks/{ulid}", remote_oid)  # fast-forward
+            git.update_ref(task_ref, remote_oid)  # fast-forward
         elif git.is_ancestor(remote_oid, local_oid):
+            if pruned:
+                git.update_ref(task_ref, local_oid)  # restore at our pruned oid
             continue  # local strictly ahead — push will send it
         else:
             merge = git.commit_tree(
                 git.empty_tree(), b"merge", parents=[local_oid, remote_oid]
             )
-            git.update_ref(f"refs/tasks/{ulid}", merge)  # join diverged heads
+            git.update_ref(task_ref, merge)  # join diverged heads
 
 def push() -> None:
     """
