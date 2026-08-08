@@ -111,6 +111,16 @@ def update_ref(ref: str, new_oid: str, old_oid: str | None = None) -> None:
         args.append(old_oid)
     run(args)
 
+def delete_ref(ref: str, old_oid: str) -> None:
+    """
+    Delete a ref locally, but only if it currently points at old_oid.
+
+    Args:
+        ref: the full ref name to delete, e.g. "refs/tasks/<ULID>".
+        old_oid: the commit OID the ref must currently point to.
+    """
+    run(["update-ref", "-d", ref, old_oid])
+
 def for_each_ref(pattern: str) -> list[tuple[str, str]]:
     """
     List refs matching a pattern.
@@ -237,4 +247,36 @@ def push(remote: str, refspec: str) -> None:
         stderr = e.stderr or b""
         if b"non-fast-forward" in stderr or b"fetch first" in stderr:
             raise PushRejectedError() from e
+        raise
+
+def push_delete(remote: str, ref: str, expected_oid: str) -> bool:
+    """
+    Delete a ref on the remote, but only if it still matches expected_oid.
+
+    Uses --force-with-lease with an explicit expected value, never the bare
+    form. An explicit oid makes this a real compare-and-swap: it fails
+    closed if the remote moved since expected_oid was observed, instead of
+    silently degrading to a plain force the way the bare form would with
+    tsk's non-standard refspec mapping (see ADR-0002).
+
+    Args:
+        remote: the remote name, e.g. "origin".
+        ref: the full ref to delete, e.g. "refs/tasks/<ULID>".
+        expected_oid: the oid the remote ref must currently be at.
+
+    Returns:
+        True if the ref was deleted. False if the remote had moved (or the
+        ref was already gone) and nothing was changed.
+
+    Raises:
+        subprocess.CalledProcessError: for any failure other than a lease
+            rejection or a missing ref, e.g. a network or auth error.
+    """
+    try:
+        run(["push", f"--force-with-lease={ref}:{expected_oid}", "--delete", remote, ref])
+        return True
+    except subprocess.CalledProcessError as e:
+        stderr = e.stderr or b""
+        if b"stale info" in stderr or b"does not exist" in stderr or b"rejected" in stderr:
+            return False
         raise
