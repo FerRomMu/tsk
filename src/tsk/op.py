@@ -161,9 +161,10 @@ def write_set_deleted(task_id: str, deleted: bool) -> None:
     Change a task's deleted flag: build a set_deleted op and append it to the
     task's ref.
 
-    The ref itself is never removed, so a deleted task's history stays intact
-    and can be restored by writing `deleted=False` later; deletion only hides
-    the task from `ls`.
+    The ref itself is untouched here, so a deleted task's history stays
+    intact and can be restored by writing `deleted=False` later; deletion
+    only hides the task from `ls`. Actually erasing the ref is a separate,
+    explicit step — see `sync.prune`.
 
     Args:
         task_id: the task's id (the ref suffix).

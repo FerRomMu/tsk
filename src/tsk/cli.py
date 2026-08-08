@@ -24,7 +24,16 @@ def cmd_mv(args):
 
 def cmd_rm(args):
     task_id = resolve_id(args.id)
-    op.write_set_deleted(task_id, True)
+    if args.prune:
+        task = fold.fold_ref(f"refs/tasks/{task_id}")
+        if not task.deleted:
+            raise SystemExit(
+                f"tsk: '{task_id}' must be deleted before it can be pruned; "
+                f"run `tsk rm {task_id}` first"
+            )
+        sync.prune(task_id)
+    else:
+        op.write_set_deleted(task_id, True)
 
 def cmd_edit(args):
     if args.title is None and args.body is None:
@@ -91,6 +100,11 @@ def main(argv=None):
 
     rm = sub.add_parser("rm", help="deletes a task from the backlog")
     rm.add_argument("id", help="the task id, or a unique prefix of it")
+    rm.add_argument(
+        "--prune", action="store_true",
+        help="hard-delete an already-deleted task's ref locally; "
+             "`sync` will try to delete it on the remote too",
+    )
     rm.set_defaults(func=cmd_rm)
 
     show = sub.add_parser("show", help="show one task in full")
