@@ -29,3 +29,11 @@ the point of the log is to show how the design moved, not to hide that it did.
 | [0003](docs/adr/0003-op-payload-in-blob-not-commit-message.md) | Op payload in blob+tree, not in the commit message | Accepted |
 | [0004](docs/adr/0004-op-identity-is-blob-oid.md) | Op identity is the blob OID | Accepted |
 | [0005](docs/adr/0005-no-git-config-side-effects.md) | No git-config side effects; explicit refspecs, no `tsk init` | Accepted |
+
+## Agent skill
+
+A Claude Code skill at [`.claude/skills/tsk/SKILL.md`](.claude/skills/tsk/SKILL.md)
+teaches the agent how to drive `tsk` — the full command surface (`new`, `ls`,
+`show`, `mv`, `edit`, `sync`), the unique-ULID-prefix id convention, and the
+"nothing is shared until `tsk sync`" rule. It loads automatically when a task
+touches the backlog; read it directly for a usage-level overview of the tool.
